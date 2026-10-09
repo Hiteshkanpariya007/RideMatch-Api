@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Services.Interfaces;
 using Services.Models;
 
@@ -17,7 +17,7 @@ namespace RideMatch_Api.Controllers
         public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
         {
             var response = await _authService.RegisterAsync(request, cancellationToken);
-            return Created("api/v1/auth/register", response);
+            return CreatedAtAction(nameof(Register), response);
         }
 
         [HttpPost("login")]
@@ -27,3 +27,4 @@ namespace RideMatch_Api.Controllers
         }
     }
 }
+

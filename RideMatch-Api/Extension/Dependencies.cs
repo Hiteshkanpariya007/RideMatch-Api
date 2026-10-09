@@ -40,10 +40,9 @@ namespace RideMatch_Api.Extension
         {
 
             services.AddTransient<ILoggerManager, LoggerManager>();
-            services.AddTransient<IRedisService, RedisService>();
-            services.AddTransient<IRideMatchQueue, RideMatchQueue>();
+            services.AddSingleton<RideMatchQueue>();
+            services.AddSingleton<IRideMatchQueue>(provider => provider.GetRequiredService<RideMatchQueue>());
             services.AddTransient<IRideMatchService, RideMatchService>();
-            services.AddTransient<IAuthService, AuthService>();
             services.AddTransient<IDriverService, DriverService>();
             services.AddTransient<IRiderRideService, RiderRideService>();
             services.AddHostedService<RideMatchWorker>();
@@ -58,12 +57,21 @@ namespace RideMatch_Api.Extension
         public static IServiceCollection AddRedis(this IServiceCollection services, IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
-            services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(connectionString));
+            services.AddSingleton<IConnectionMultiplexer>(_ =>
+            {
+                var options = ConfigurationOptions.Parse(connectionString);
+                options.AbortOnConnectFail = false;
+                return ConnectionMultiplexer.Connect(options);
+            });
             services.AddSingleton<IRedisService, RedisService>();
             return services;
         }
     }
 }
+
+
+
+
 
 
 

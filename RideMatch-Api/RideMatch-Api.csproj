@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>RideMatch_Api</RootNamespace>
+    <UserSecretsId>8f191262-b603-48d3-ad62-3cb3aaec4cd3</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

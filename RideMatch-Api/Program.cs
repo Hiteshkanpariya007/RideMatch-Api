@@ -1,4 +1,5 @@
 using Common.Constants;
+using Data.Context;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,7 @@ using Microsoft.OpenApi;
 using RideMatch_Api.Extension;
 using RideMatch_Api.Hubs;
 using RideMatch_Api.Middleware;
+using Services.Implementation;
 using Serilog;
 using Services.Interfaces;
 using System.Threading.RateLimiting;
@@ -18,6 +20,7 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .WriteTo.Console());
 
 builder.Services.AddControllers();
+builder.Services.AddDbContext<RideMatchContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("RideMatchDB") ?? throw new InvalidOperationException("ConnectionStrings:RideMatchDB is not configured.")));
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Services.Validators.RegisterRequestValidator>();
 builder.Services.AddEndpointsApiExplorer();
@@ -40,14 +43,25 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddSignalR();
 builder.Services.RegisterDependencies();
-builder.Services.AddRedis(builder.Configuration);
+var useInMemoryRedis = builder.Configuration.GetValue<bool>("Redis:UseInMemory");
+if (useInMemoryRedis)
+{
+    builder.Services.AddSingleton<IRedisService, InMemoryRedisService>();
+}
+else
+{
+    builder.Services.AddRedis(builder.Configuration);
+}
 builder.Services.ConfigureAuthentication(builder.Configuration);
 
 builder.Services.AddSingleton<IRideNotificationService, SignalRNotificationService>();
 builder.Services.Configure<MatchingOptions>(builder.Configuration.GetSection(MatchingOptions.SectionName));
-builder.Services.AddHealthChecks()
-    .AddSqlServer(builder.Configuration.GetConnectionString("RideMatchDB")!, name: "sql-server", tags: ["ready"])
-    .AddRedis(builder.Configuration.GetConnectionString("Redis")!, name: "redis", tags: ["ready"]);
+var healthChecks = builder.Services.AddHealthChecks()
+    .AddSqlServer(builder.Configuration.GetConnectionString("RideMatchDB")!, name: "sql-server", tags: ["ready"]);
+if (!useInMemoryRedis)
+{
+    healthChecks.AddRedis(builder.Configuration.GetConnectionString("Redis")!, name: "redis", tags: ["ready"]);
+}
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -66,8 +80,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 app.UseHttpsRedirection();
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<RideHub>("/hubs/ride");
@@ -76,3 +90,7 @@ app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthC
 app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
 app.Run();
+
+
+
+

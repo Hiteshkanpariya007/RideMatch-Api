@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Services.Interfaces;
 
 namespace Services.Implementation
 {
@@ -16,7 +17,7 @@ namespace Services.Implementation
                 try
                 {
                     using var scope = scopeFactory.CreateScope();
-                    var matchingService = scope.ServiceProvider.GetRequiredService<RideMatchService>();
+                    var matchingService = scope.ServiceProvider.GetRequiredService<IRideMatchService>();
                     await matchingService.MatchAsync(rideId, stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -31,3 +32,4 @@ namespace Services.Implementation
         }
     }
 }
+

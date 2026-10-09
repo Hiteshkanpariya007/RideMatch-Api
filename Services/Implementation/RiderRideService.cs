@@ -30,7 +30,7 @@ public class RiderRideService : IRiderRideService
     {
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
-            var existing = await _redisService.GetAsync<RideResponse>(RedisKeys.Idempotency(idempotencyKey), cancellationToken);
+            var existing = await _redisService.GetAsync<RideResponse>(RedisKeys.Idempotency(userId, idempotencyKey), cancellationToken);
             if (existing is not null)
             {
                 return new RideCreationResult(existing, true);
@@ -55,7 +55,7 @@ public class RiderRideService : IRiderRideService
         var response = ToResponse(ride);
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
-            await _redisService.SetAsync(RedisKeys.Idempotency(idempotencyKey), response, TimeSpan.FromHours(24), cancellationToken);
+            await _redisService.SetAsync(RedisKeys.Idempotency(userId, idempotencyKey), response, TimeSpan.FromHours(24), cancellationToken);
         }
 
         await _matchingQueue.EnqueueAsync(ride.Id, cancellationToken);
@@ -131,4 +131,5 @@ public class RiderRideService : IRiderRideService
         Fare = ride.Fare
     };
 }
+
 

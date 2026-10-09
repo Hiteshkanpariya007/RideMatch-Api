@@ -59,6 +59,16 @@ namespace Services.Repositories
                 throw new InvalidOperationException("Ride cannot be cancelled in its current state.");
             }
 
+            if (ride.Status == RideStatus.DriverAssigned && ride.DriverId.HasValue)
+            {
+                var driver = await dbContext.Drivers.SingleOrDefaultAsync(item => item.Id == ride.DriverId.Value, cancellationToken);
+                if (driver is not null)
+                {
+                    driver.IsAvailable = true;
+                    driver.UpdatedAt = cancelledAt;
+                }
+            }
+
             ride.Status = RideStatus.Cancelled;
             ride.CancelledAt = cancelledAt;
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -66,3 +76,4 @@ namespace Services.Repositories
         }
     }
 }
+

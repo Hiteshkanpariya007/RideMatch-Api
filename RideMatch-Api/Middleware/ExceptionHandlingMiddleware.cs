@@ -26,6 +26,10 @@ namespace RideMatch_Api.Middleware
             {
                 await next(context);
             }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                logger.LogDebug("Request {TraceId} was cancelled by the client.", context.TraceIdentifier);
+            }
             catch (Exception exception)
             {
                 await WriteErrorAsync(context, exception);

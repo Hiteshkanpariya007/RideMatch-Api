@@ -1,4 +1,4 @@
-﻿using Services.Models;
+using Services.Models;
 using FluentValidation;
 
 namespace Services.Validators
@@ -28,6 +28,7 @@ namespace Services.Validators
         public RegisterRequestValidator()
         {
             RuleFor(request => request.Name).NotEmpty().MaximumLength(150);
+            RuleFor(request => request.Role).IsInEnum();
             RuleFor(request => request.Email).NotEmpty().EmailAddress().MaximumLength(320);
             RuleFor(request => request.Password).NotEmpty().MinimumLength(8);
             RuleFor(request => request.PhoneNumber).NotEmpty().MaximumLength(30);
@@ -48,3 +49,4 @@ namespace Services.Validators
         }
     }
 }
+

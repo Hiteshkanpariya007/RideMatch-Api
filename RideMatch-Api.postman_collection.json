@@ -1,0 +1,1032 @@
+{
+    "info":  {
+                 "name":  "RideMatch API - Local Smoke Checks",
+                 "description":  "Local Postman collection for RideMatch API. Set up SQL Server first, apply Data/Migrations, set Jwt:SecretKey with .NET User Secrets, and run the API in Development. Development uses process-local in-memory Redis for single-instance interview demos; configure and start Redis for production or multi-instance runs. Base URL defaults to https://localhost:7158.\n\nRun folders in this order: Health, Authentication, Driver Setup, Rider Ride Create/Read, Driver Ride Workflow, Rider Cancel Flow, Authorization and Validation. Use Collection Runner sequentially. The matching worker is asynchronous: after creating a ride, wait until it appears in Driver Ride History with status DriverAssigned before running the driver lifecycle requests. The sample pickup matches the driver\u0027s sample location.\n\nRegistration creates a fresh sample account each time the folder runs; its emails and tokens are stored as collection variables. This is a local development collection, not for production credentials.",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "item":  [
+                 {
+                     "name":  "01 - Health and Swagger",
+                     "item":  [
+                                  {
+                                      "name":  "Liveness",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/health/live"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"API is alive\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Readiness (SQL Server and Redis)",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/health/ready"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Dependencies are ready\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Swagger JSON",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/swagger/v1/swagger.json"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Swagger document loads\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "02 - Authentication",
+                     "item":  [
+                                  {
+                                      "name":  "Register Rider",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/Auth/register",
+                                                      "body":  {
+                                                                   "raw":  "{\"name\":\"Postman Sample Rider\",\"email\":\"{{riderEmail}}\",\"password\":\"{{samplePassword}}\",\"phoneNumber\":\"{{riderPhone}}\",\"role\":1}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "const id = Date.now(); pm.collectionVariables.set(\"riderEmail\", `rider.${id}@example.test`); pm.collectionVariables.set(\"riderPhone\", `+1555${String(id).slice(-7)}`);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "prerequest"
+                                                    },
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Rider registered\", () =\u003e pm.response.to.have.status(201)); const body = pm.response.json(); pm.expect(body.token).to.be.a(\"string\"); pm.collectionVariables.set(\"riderToken\", body.token); pm.collectionVariables.set(\"riderId\", body.userId);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Login Rider",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/Auth/login",
+                                                      "body":  {
+                                                                   "raw":  "{\"email\":\"{{riderEmail}}\",\"password\":\"{{samplePassword}}\"}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Rider login\", () =\u003e pm.response.to.have.status(200)); const body = pm.response.json(); pm.expect(body.token).to.be.a(\"string\"); pm.collectionVariables.set(\"riderToken\", body.token);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Register Driver",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/Auth/register",
+                                                      "body":  {
+                                                                   "raw":  "{\"name\":\"Postman Sample Driver\",\"email\":\"{{driverEmail}}\",\"password\":\"{{samplePassword}}\",\"phoneNumber\":\"{{driverPhone}}\",\"role\":2,\"vehicleType\":\"Car\",\"vehicleNumber\":\"{{vehicleNumber}}\"}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "const id = Date.now(); pm.collectionVariables.set(\"driverEmail\", `driver.${id}@example.test`); pm.collectionVariables.set(\"driverPhone\", `+1666${String(id).slice(-7)}`); pm.collectionVariables.set(\"vehicleNumber\", `PM-${String(id).slice(-8)}`);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "prerequest"
+                                                    },
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver registered\", () =\u003e pm.response.to.have.status(201)); const body = pm.response.json(); const token = body.token || (body.data \u0026\u0026 body.data.token); pm.expect(token, \"Driver registration response must include a token\").to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"driverToken\", token); if (pm.environment.get(\"driverToken\") !== undefined) pm.environment.set(\"driverToken\", token); pm.collectionVariables.set(\"driverUserId\", body.userId || (body.data \u0026\u0026 body.data.userId));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Login Driver",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/Auth/login",
+                                                      "body":  {
+                                                                   "raw":  "{\"email\":\"{{driverEmail}}\",\"password\":\"{{samplePassword}}\"}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver login\", () =\u003e pm.response.to.have.status(200)); const body = pm.response.json(); const token = body.token || (body.data \u0026\u0026 body.data.token); pm.expect(token, \"Driver login response must include a token\").to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"driverToken\", token); if (pm.environment.get(\"driverToken\") !== undefined) pm.environment.set(\"driverToken\", token);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ],
+                     "description":  "Run this folder first. It registers and logs in a fresh rider and driver, then saves riderToken and driverToken."
+                 },
+                 {
+                     "name":  "03 - Driver Setup",
+                     "item":  [
+                                  {
+                                      "name":  "Go Online",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/online"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver went online\", () =\u003e pm.response.to.have.status(200)); const body = pm.response.json(); pm.collectionVariables.set(\"driverId\", body.data.driverId);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Update Location (near sample ride)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/location",
+                                                      "body":  {
+                                                                   "raw":  "{\"latitude\":37.7749,\"longitude\":-122.4194}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Location accepted\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "My Status",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/me"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver status\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Status Alias",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/status"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver status alias\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ],
+                     "auth":  {
+                                  "bearer":  [
+                                                 {
+                                                     "key":  "token",
+                                                     "type":  "string",
+                                                     "value":  "{{driverToken}}"
+                                                 }
+                                             ],
+                                  "type":  "bearer"
+                              },
+                     "description":  "Go online and publish a fresh location before creating the sample ride."
+                 },
+                 {
+                     "name":  "04 - Rider Ride Create and Read",
+                     "item":  [
+                                  {
+                                      "name":  "Create Ride",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Idempotency-Key",
+                                                                         "type":  "text",
+                                                                         "value":  "{{runId}}-ride"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/riders/rides",
+                                                      "body":  {
+                                                                   "raw":  "{\"pickupLatitude\":37.7749,\"pickupLongitude\":-122.4194,\"destinationLatitude\":37.7849,\"destinationLongitude\":-122.4094}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.collectionVariables.set(\"runId\", Date.now().toString());"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "prerequest"
+                                                    },
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Ride created\", () =\u003e pm.response.to.have.status(201)); const body = pm.response.json(); pm.expect(body.data.id).to.be.a(\"string\"); pm.collectionVariables.set(\"rideId\", body.data.id);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Ride History",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/riders/rides?page=1\u0026pageSize=20"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Rider history\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Get Created Ride",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/riders/rides/{{rideId}}"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Rider can read ride\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ],
+                     "auth":  {
+                                  "bearer":  [
+                                                 {
+                                                     "key":  "token",
+                                                     "type":  "string",
+                                                     "value":  "{{riderToken}}"
+                                                 }
+                                             ],
+                                  "type":  "bearer"
+                              },
+                     "description":  "Creates a ride and stores rideId for subsequent requests."
+                 },
+                 {
+                     "name":  "05 - Driver Ride Workflow",
+                     "item":  [
+                                  {
+                                      "name":  "Assigned Ride History",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/rides?page=1\u0026pageSize=20"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver ride history\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Get Assigned Ride",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/rides/{{rideId}}"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver can read assigned ride\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Accept Ride",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/rides/{{rideId}}/accept"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Ride accepted\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Mark Arrived",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/rides/{{rideId}}/arrived"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver arrival recorded\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Start Ride",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/rides/{{rideId}}/start"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Ride started\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Complete Ride",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/rides/{{rideId}}/complete"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Ride completed\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ],
+                     "auth":  {
+                                  "bearer":  [
+                                                 {
+                                                     "key":  "token",
+                                                     "type":  "string",
+                                                     "value":  "{{driverToken}}"
+                                                 }
+                                             ],
+                                  "type":  "bearer"
+                              },
+                     "description":  "Run after the matching worker assigns the sample ride to this driver. Check Driver Ride History first."
+                 },
+                 {
+                     "name":  "06 - Rider Cancel Flow",
+                     "item":  [
+                                  {
+                                      "name":  "Create Ride to Cancel",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Idempotency-Key",
+                                                                         "type":  "text",
+                                                                         "value":  "{{runId}}-cancel"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/riders/rides",
+                                                      "body":  {
+                                                                   "raw":  "{\"pickupLatitude\":37.7749,\"pickupLongitude\":-122.4194,\"destinationLatitude\":37.7849,\"destinationLongitude\":-122.4094}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Second ride created\", () =\u003e pm.response.to.have.status(201)); pm.collectionVariables.set(\"cancelRideId\", pm.response.json().data.id);"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Cancel Eligible Ride",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/riders/rides/{{cancelRideId}}/cancel"
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Ride cancelled\", () =\u003e pm.response.to.have.status(200));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ],
+                     "auth":  {
+                                  "bearer":  [
+                                                 {
+                                                     "key":  "token",
+                                                     "type":  "string",
+                                                     "value":  "{{riderToken}}"
+                                                 }
+                                             ],
+                                  "type":  "bearer"
+                              },
+                     "description":  "Creates a second sample ride and cancels it while it is still cancellable."
+                 },
+                 {
+                     "name":  "07 - Authorization and Validation",
+                     "item":  [
+                                  {
+                                      "name":  "Driver Route Without Token (expect 401)",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/me",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Unauthenticated request is rejected\", () =\u003e pm.response.to.have.status(401));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Driver Route With Rider Token (expect 403)",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/drivers/me",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{riderToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Rider cannot access driver API\", () =\u003e pm.response.to.have.status(403));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Rider Route With Driver Token (expect 403)",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/riders/rides",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{driverToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Driver cannot access rider API\", () =\u003e pm.response.to.have.status(403));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Invalid Coordinates (expect 400)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "type":  "text",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/api/v1/riders/rides",
+                                                      "body":  {
+                                                                   "raw":  "{\"pickupLatitude\":120,\"pickupLongitude\":0,\"destinationLatitude\":0,\"destinationLongitude\":0}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{riderToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Coordinate validation rejects invalid latitude\", () =\u003e pm.response.to.have.status(400));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ],
+                     "description":  "Checks expected 401/403 role responses and invalid-coordinate validation."
+                 },
+                 {
+                     "description":  "Hub access requires a valid bearer token. The negotiate request checks authenticated access; use a SignalR-capable client for JoinRideGroup and LeaveRideGroup WebSocket invocations.",
+                     "name":  "08 - SignalR Ride Hub",
+                     "item":  [
+                                  {
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "url":  "{{baseUrl}}/hubs/ride/negotiate?negotiateVersion=1",
+                                                      "header":  [
+
+                                                                 ]
+                                                  },
+                                      "name":  "Negotiate Ride Hub (authenticated)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Authenticated hub negotiation\", () =\u003e pm.response.to.have.status(200)); const body = pm.response.json(); pm.expect(body.connectionToken).to.be.a(\"string\");"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "url":  "{{baseUrl}}/hubs/ride/negotiate?negotiateVersion=1",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               }
+                                                  },
+                                      "name":  "Negotiate Ride Hub Without Token (expect 401)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Unauthenticated hub negotiation is rejected\", () =\u003e pm.response.to.have.status(401));"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ],
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ],
+                     "auth":  {
+                                  "bearer":  [
+                                                 {
+                                                     "key":  "token",
+                                                     "type":  "string",
+                                                     "value":  "{{riderToken}}"
+                                                 }
+                                             ],
+                                  "type":  "bearer"
+                              }
+                 }
+             ],
+    "variable":  [
+                     {
+                         "key":  "baseUrl",
+                         "type":  "string",
+                         "value":  "https://localhost:7158"
+                     },
+                     {
+                         "key":  "samplePassword",
+                         "type":  "string",
+                         "value":  "RideMatch!LocalTest123"
+                     },
+                     {
+                         "key":  "riderEmail",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "riderPhone",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "driverEmail",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "driverPhone",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "vehicleNumber",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "riderToken",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "driverToken",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "riderId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "driverId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "driverUserId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "runId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "rideId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "cancelRideId",
+                         "type":  "string",
+                         "value":  ""
+                     }
+                 ]
+}
