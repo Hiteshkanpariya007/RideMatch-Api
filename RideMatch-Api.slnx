@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Library/">
+    <Project Path="Common/Common.csproj" />
+    <Project Path="Data/Data.csproj" />
+    <Project Path="Services/Services.csproj" />
+  </Folder>
+  <Project Path="RideMatch-Api/RideMatch-Api.csproj" />
+</Solution>
