@@ -12,6 +12,8 @@ public interface IRideRepository
 
     Task<(int TotalCount, IReadOnlyList<Ride> Items)> GetRiderRidesAsync(Guid riderId, int page, int pageSize, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Guid>> GetPendingRideIdsAsync(CancellationToken cancellationToken = default);
+
     Task<Ride?> GetRiderRideAsync(Guid riderId, Guid rideId, CancellationToken cancellationToken = default);
 
     Task<Ride?> CancelRiderRideAsync(Guid riderId, Guid rideId, DateTime cancelledAt, CancellationToken cancellationToken = default);

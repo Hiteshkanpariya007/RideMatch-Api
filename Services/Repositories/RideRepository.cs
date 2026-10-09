@@ -39,6 +39,15 @@ namespace Services.Repositories
             return (totalCount, items);
         }
 
+        public async Task<IReadOnlyList<Guid>> GetPendingRideIdsAsync(CancellationToken cancellationToken = default)
+        {
+            return await dbContext.Rides.AsNoTracking()
+                .Where(ride => ride.Status == RideStatus.Searching && !ride.DriverId.HasValue)
+                .OrderBy(ride => ride.RequestedAt)
+                .Select(ride => ride.Id)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<Ride?> GetRiderRideAsync(Guid riderId, Guid rideId, CancellationToken cancellationToken = default)
         {
             return await dbContext.Rides.AsNoTracking()

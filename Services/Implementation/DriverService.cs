@@ -11,17 +11,23 @@ namespace Services.Implementation;
 public class DriverService : IDriverService
 {
     private readonly IDriverRepository _driverRepository;
+    private readonly IRideRepository _rideRepository;
     private readonly IRedisService _redisService;
     private readonly IRideNotificationService _rideNotificationService;
+    private readonly IRideMatchQueue _matchingQueue;
 
     public DriverService(
         IDriverRepository driverRepository,
+        IRideRepository rideRepository,
         IRedisService redisService,
-        IRideNotificationService rideNotificationService)
+        IRideNotificationService rideNotificationService,
+        IRideMatchQueue matchingQueue)
     {
         this._driverRepository = driverRepository;
+        this._rideRepository = rideRepository;
         this._redisService = redisService;
         this._rideNotificationService = rideNotificationService;
+        this._matchingQueue = matchingQueue;
     }
     public async Task<DriverStatusResponse> GoOnlineAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -44,6 +50,15 @@ public class DriverService : IDriverService
         driver.UpdatedAt = now;
         await _driverRepository.SaveAsync(cancellationToken);
         await _redisService.SetAsync(RedisKeys.DriverLocation(driver.Id), new DriverLocationCacheItem(request.Latitude, request.Longitude, now), TimeSpan.FromMinutes(2), cancellationToken);
+
+        if (driver.IsOnline && driver.IsAvailable)
+        {
+            var pendingRideIds = await _rideRepository.GetPendingRideIdsAsync(cancellationToken);
+            foreach (var pendingRideId in pendingRideIds)
+            {
+                await _matchingQueue.EnqueueAsync(pendingRideId, cancellationToken);
+            }
+        }
 
         var activeRideId = await _driverRepository.GetActiveRideIdAsync(driver.Id, cancellationToken);
         if (activeRideId.HasValue)
